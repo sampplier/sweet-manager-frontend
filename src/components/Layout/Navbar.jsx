@@ -13,9 +13,12 @@ export default function Navbar() {
     localStorage.removeItem('token');
     navigate('/login');
   };
+  const cart = () =>{
+    navigate('cart ')
+  }
 
   return (
-    <header className="bg-white shadow">
+    <header className="bg-purple-500 shadow">
       <div className="container mx-auto px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-4">
 
@@ -34,13 +37,13 @@ export default function Navbar() {
 
             <Link to="/products" className="text-sm">Produtos</Link>
             <Link to="/orders" className="text-sm">Pedidos</Link>
+            <Link to="/cart" className="text-sm">Carrinho</Link>
           </nav>
         </div>
-
         <div>
           <button
             onClick={logout}
-            className="text-sm px-3 py-1 rounded bg-red-500 text-white"
+            className="text-sm px-4 py-1 rounded bg-red-500 text-white"
           >
             Sair
           </button>

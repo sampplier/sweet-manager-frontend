@@ -1,35 +1,38 @@
 import React, { useEffect, useState } from "react";
-import ProductCard from "../components/ProductCard";
+import ProductCard from "../components/Products/ProductCard.jsx";
+import {jwtDecode} from 'jwt-decode';
 
 export default function Products() {
   const [products, setProducts] = useState([]);
   const [form, setForm] = useState({ name: "", price: "", stock: "" });
-  const [showForm, setShowForm] = useState(false); // 👈 controla se o form aparece
+  const [showForm, setShowForm] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      const decoded = jwtDecode(token);
+      setIsAdmin(decoded.role === "ROLE_ADMIN");
+    }
+    loadProducts();
+  }, []);
 
   async function loadProducts() {
     const token = localStorage.getItem("token");
     const resp = await fetch("http://localhost:8080/api/products", {
       headers: {
-        "Authorization": `Bearer ${token}`,
+        Authorization: token ? `Bearer ${token}` : undefined,
         "Content-Type": "application/json"
       }
     });
-    if (resp.ok) {
-      const data = await resp.json();
-      setProducts(data);
-    } else {
-      console.error("Erro ao carregar produtos");
-    }
+    if (resp.ok) setProducts(await resp.json());
   }
-
-  useEffect(() => {
-    loadProducts();
-  }, []);
 
   async function handleSubmit(e) {
     e.preventDefault();
-    const token = localStorage.getItem("token");
+    if (!isAdmin) return;
 
+    const token = localStorage.getItem("token");
     const resp = await fetch("http://localhost:8080/api/products", {
       method: "POST",
       headers: {
@@ -40,32 +43,14 @@ export default function Products() {
         name: form.name,
         price: parseFloat(form.price),
         stock: parseInt(form.stock),
+        available: true
       }),
     });
 
     if (resp.ok) {
       setForm({ name: "", price: "", stock: "" });
-      setShowForm(false); 
+      setShowForm(false);
       loadProducts();
-    } else {
-      console.error("Erro ao cadastrar produto");
-    }
-  }
-
-  async function handleDelete(id) {
-    const token = localStorage.getItem("token");
-
-    const resp = await fetch(`http://localhost:8080/api/products/${id}`, {
-      method: "DELETE",
-      headers: {
-        Authorization: token ? `Bearer ${token}` : undefined,
-      },
-    });
-
-    if (resp.ok) {
-      loadProducts();
-    } else {
-      console.error("Erro ao excluir produto");
     }
   }
 
@@ -73,20 +58,36 @@ export default function Products() {
     setForm({ ...form, [e.target.name]: e.target.value });
   }
 
+  function handleAddToCart(product, quantity) {
+    const token = localStorage.getItem("token");
+    fetch("http://localhost:8080/api/cart/add", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ productId: product.id, quantity }),
+    })
+      .then(r => r.json())
+      .then(() => alert(`${product.name} adicionado ao carrinho!`))
+      .catch(err => console.error("Erro ao adicionar ao carrinho:", err));
+  }
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Gerenciar Produtos</h2>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700"
-        >
-          {showForm ? "Cancelar" : "Novo Produto"}
-        </button>
+        <h2 className="text-2xl font-bold">Produtos</h2>
+        {isAdmin && (
+          <button
+            onClick={() => setShowForm(!showForm)}
+            className="bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700"
+          >
+            {showForm ? "Cancelar" : "Novo Produto"}
+          </button>
+        )}
       </div>
 
-      
-      {showForm && (
+      {isAdmin && showForm && (
         <form
           onSubmit={handleSubmit}
           className="bg-white p-4 rounded shadow space-y-2 max-w-md"
@@ -133,12 +134,18 @@ export default function Products() {
         </form>
       )}
 
-      {/* Lista de produtos */}
       <div className="grid md:grid-cols-3 gap-4">
-        {products.map((p) => (
-          <ProductCard key={p.id} product={p} onDelete={handleDelete} />
+        {products.map(p => (
+          <ProductCard
+            key={p.id}
+            product={p}
+            onAddToCart={handleAddToCart}
+            isAdmin={isAdmin}
+          />
+
         ))}
-      </div>
+</div>
+
     </div>
   );
 }
